@@ -38,6 +38,8 @@ steps:
         --cache-from gcr.io/$PROJECT_ID/$_IMAGE_NAME:latest .
 
     entrypoint: bash
+    options:
+      logging: CLOUD_LOGGING_ONLY
 
   # Push container image to registry
   - name: gcr.io/cloud-builders/docker
