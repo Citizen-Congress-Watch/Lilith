@@ -1,4 +1,0 @@
--- AlterTable
-ALTER TABLE "ElectionArea" ADD COLUMN     "level" TEXT DEFAULT E'local',
-ALTER COLUMN "type" DROP NOT NULL,
-ALTER COLUMN "type" DROP DEFAULT;

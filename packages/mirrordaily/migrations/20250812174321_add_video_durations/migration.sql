@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE "Video" ADD COLUMN "fileDuration" INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE "Video" ADD COLUMN "youtubeDuration" INTEGER NOT NULL DEFAULT 0;
