@@ -338,6 +338,12 @@ const listConfigurations = list({
       many: true,
       ref: 'Meeting',
     }),
+    unfreezeReport: text({
+      label: '解凍報告',
+      db: {
+        isNullable: true,
+      },
+    }),
     description: text({
       label: '說明',
       db: {
