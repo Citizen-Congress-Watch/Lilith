@@ -156,6 +156,7 @@ model Proposal {
   budgetAmount                              Float?
   unfreezeStatus                            String?
   unfreezeHistory                           Meeting[]          @relation("Proposal_unfreezeHistory")
+  unfreezeReport                            String?
   description                               String?
   reason                                    String?
   react_good                                Int?               @default(0)
