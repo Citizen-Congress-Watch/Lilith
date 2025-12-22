@@ -45,6 +45,7 @@ model Committee {
   from_Meeting_committee Meeting[] @relation("Meeting_committee")
 
   @@index([termId])
+  @@unique([termId, session, name])
 }
 
 model People {

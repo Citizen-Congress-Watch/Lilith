@@ -91,16 +91,18 @@ const listConfigurations = list({
   },
   hooks: {
     validateInput: async ({ operation, resolvedData, item, addValidationError, context }) => {
-      // 只在 create 或 update 且有改動 term/name 時檢查
+      // 只在 create 或 update 且有改動 term/name/session 時檢查
       const termId = resolvedData.term?.connect?.id ?? item?.termId
       const name = resolvedData.name ?? item?.name
+      const session = resolvedData.session ?? item?.session
 
-      if (!termId || !name) return // term 或 name 為空時略過（required 由 field validation 處理）
+      if (!termId || !name || !session) return // 必填欄位缺失時略過（由 field validation 處理）
 
-      // 查詢是否已存在相同 term + name 的記錄（排除自己）
+      // 查詢是否已存在相同 term + session + name 的記錄（排除自己）
       const existing = await context.query.Committee.findMany({
         where: {
           term: { id: { equals: termId } },
+          session: { equals: session },
           name: { equals: name },
           ...(operation === 'update' && item?.id ? { id: { not: { equals: String(item.id) } } } : {}),
         },
@@ -108,7 +110,7 @@ const listConfigurations = list({
       })
 
       if (existing.length > 0) {
-        addValidationError('此屆立法院已存在相同名稱的委員會')
+        addValidationError('此屆立法院該會期已存在相同名稱的委員會')
       }
     },
   },
