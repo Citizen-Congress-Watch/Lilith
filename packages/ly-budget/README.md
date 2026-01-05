@@ -93,3 +93,4 @@ yarn db-migrate
 - BudgetYear
   - budgetProgress：government-proposed/中央政府提出預算、committee-review/立法院委員會審議、party-negotiation/黨團協商、plenary-decision/院會決議、final-reviewed/預算三讀通過、presidential-promulgation/預算總統公布
   - dataProgress：in-progress/進行中（預設）、completed/已完成
+  - unfreezeProgress：ministry-reporting/部會開始提出解凍報告、legislative-review/立法院審議中、unfreeze-complete/全數凍結案解凍完畢

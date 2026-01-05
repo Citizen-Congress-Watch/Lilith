@@ -106,6 +106,7 @@ model BudgetYear {
   year           Int        @unique
   budgetProgress String
   dataProgress   String     @default("in-progress")
+  unfreezeProgress String?
   proposals      Proposal[] @relation("Proposal_year")
   createdAt      DateTime?
   updatedAt      DateTime?
