@@ -68,3 +68,28 @@ yarn db-migrate
 - **moderator**: 內容管理權限
 - **editor**: 編輯權限
 - **contributor**: 貢獻者權限
+
+## 下拉選單 label/value 對照
+
+- Proposal
+  - proposalTypes：freeze/凍結、reduce/刪減、other/其他建議
+  - result：passed/通過、withdrawn/撤案、reserved/保留
+  - unfreezeStatus：not_reviewed/尚未審議、reviewing/審議中、unfrozen/已解凍
+  - publishStatus：draft/草稿、published/已發布
+- Meeting
+  - location：committee/委員會、plenary/院會、negotiation/黨團協商
+  - type：budget_review/預算審議、budget_unfreeze/預算解凍
+- Budget
+  - type：budget/預算、legal_budget/法定預算
+- People
+  - type：legislator/立法委員、party/黨團
+- RecognitionImage
+  - result：passed/通過、withdrawn/撤案、reserved/保留
+  - verificationStatus：verified/已驗證、not_verified/未驗證
+- RecognitionStatus
+  - type：recognition/辨識、verification/驗證
+- User
+  - role：admin/admin、moderator/moderator、editor/editor、contributor/contributor
+- BudgetYear
+  - budgetProgress：government-proposed/中央政府提出預算、committee-review/立法院委員會審議、party-negotiation/黨團協商、plenary-decision/院會決議、final-reviewed/預算三讀通過、presidential-promulgation/預算總統公布
+  - dataProgress：in-progress/進行中（預設）、completed/已完成
