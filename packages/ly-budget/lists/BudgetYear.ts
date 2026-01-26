@@ -5,6 +5,12 @@ import { gqlReadOnly } from '../access'
 
 const { allowRoles, admin, moderator, editor } = utils.accessControl
 
+const unfreezeProgressOptions = [
+  { label: '部會開始提出解凍報告', value: 'ministry-reporting' },
+  { label: '立法院審議中', value: 'legislative-review' },
+  { label: '全數凍結案解凍完畢', value: 'unfreeze-complete' },
+]
+
 const listConfigurations = list({
   fields: {
     year: integer({
@@ -36,6 +42,13 @@ const listConfigurations = list({
         displayMode: 'segmented-control',
       },
     }),
+    unfreezeProgress: select({
+      label: '解凍案進度',
+      options: unfreezeProgressOptions,
+      db: {
+        isNullable: true,
+      },
+    }),
     proposals: relationship({
       label: '提案',
       ref: 'Proposal.year',
@@ -55,7 +68,8 @@ const listConfigurations = list({
     },
   },
   access: {
-    operation: gqlReadOnly(),
+    // Keystone 型別要求純 access 物件，gqlReadOnly 可能回傳 boolean，故轉型
+    operation: gqlReadOnly() as any,
   },
 })
 
