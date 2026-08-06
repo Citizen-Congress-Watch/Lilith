@@ -840,6 +840,7 @@ type Proposal {
   result: String
   reductionAmount: Float
   freezeAmount: Float
+  budgetImageUrls: JSON
   budgetImageUrl: String
   budget: Budget
   budgetAmount: Float
@@ -953,6 +954,7 @@ input ProposalUpdateInput {
   result: String
   reductionAmount: Float
   freezeAmount: Float
+  budgetImageUrls: JSON
   budgetImageUrl: String
   budget: BudgetRelateToOneForUpdateInput
   unfreezeStatus: String
@@ -1011,6 +1013,7 @@ input ProposalCreateInput {
   result: String
   reductionAmount: Float
   freezeAmount: Float
+  budgetImageUrls: JSON
   budgetImageUrl: String
   budget: BudgetRelateToOneForCreateInput
   unfreezeStatus: String
