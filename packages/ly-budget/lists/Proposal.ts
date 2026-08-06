@@ -61,6 +61,16 @@ function normalizeBudgetImageUrls(input: unknown): string[] {
   return [...new Set(urls)]
 }
 
+function replacePrimaryBudgetImageUrl(existingInput: unknown, legacyInput: unknown): string[] {
+  const existingUrls = normalizeBudgetImageUrls(existingInput)
+  const [primaryUrl] = normalizeBudgetImageUrls(legacyInput)
+  const remainingUrls = existingUrls.slice(1)
+
+  return normalizeBudgetImageUrls(
+    primaryUrl ? [primaryUrl, ...remainingUrls] : remainingUrls
+  )
+}
+
 // 輔助函數：獲取 budget ID
 async function getBudgetId(item: Record<string, any>, context: any): Promise<string | null> {
   let budgetId: string | null = null
@@ -441,7 +451,7 @@ const listConfigurations = list({
   },
 
   hooks: {
-    resolveInput: async ({ resolvedData, inputData }) => {
+    resolveInput: async ({ resolvedData, inputData, item }) => {
       if (inputData.budgetImageUrls !== undefined) {
         const budgetImageUrls = normalizeBudgetImageUrls(resolvedData.budgetImageUrls)
 
@@ -453,7 +463,10 @@ const listConfigurations = list({
       }
 
       if (inputData.budgetImageUrl !== undefined) {
-        const budgetImageUrls = normalizeBudgetImageUrls(resolvedData.budgetImageUrl)
+        const budgetImageUrls = replacePrimaryBudgetImageUrl(
+          item?.budgetImageUrls,
+          resolvedData.budgetImageUrl
+        )
 
         return {
           ...resolvedData,
