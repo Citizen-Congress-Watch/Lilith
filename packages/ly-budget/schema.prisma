@@ -151,6 +151,7 @@ model Proposal {
   result                                    String?
   reductionAmount                           Float?
   freezeAmount                              Float?
+  budgetImageUrls                           Json               @default("[]") @map("budget_image_urls")
   budgetImageUrl                            String?
   budget                                    Budget?            @relation("Proposal_budget", fields: [budgetId], references: [id])
   budgetId                                  Int?               @map("budget")
