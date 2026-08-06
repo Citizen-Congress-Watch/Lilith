@@ -18,6 +18,7 @@
   "dependencies": {
     "@apollo/server-plugin-response-cache": "^4.1.3",
     "@apollo/utils.keyvadapter": "^3.0.0",
+    "@google-cloud/storage": "^6.12.0",
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "11.11.0",
     "@keystone-6/auth": "7.0.0",
@@ -32,7 +33,8 @@
     "keyv": "^4.5.3",
     "patch-package": "^6.4.7",
     "redis-errors": "^1.2.0",
-    "redis-parser": "^3.0.0"
+    "redis-parser": "^3.0.0",
+    "sharp": "0.33.5"
   },
   "resolutions": {
     "**/react": "18.2.0",
