@@ -843,6 +843,7 @@ type Proposal {
   budgetImageUrls: JSON
   budgetImageUrl: String
   budget: Budget
+  cost: Float
   budgetAmount: Float
   budgetMajorCategory: String
   budgetMediumCategory: String
@@ -892,6 +893,7 @@ input ProposalWhereInput {
   freezeAmount: FloatNullableFilter
   budgetImageUrl: StringNullableFilter
   budget: BudgetWhereInput
+  cost: FloatNullableFilter
   budgetAmount: FloatNullableFilter
   unfreezeStatus: StringNullableFilter
   unfreezeHistory: MeetingManyRelationFilter
@@ -928,6 +930,7 @@ input ProposalOrderByInput {
   reductionAmount: OrderDirection
   freezeAmount: OrderDirection
   budgetImageUrl: OrderDirection
+  cost: OrderDirection
   budgetAmount: OrderDirection
   unfreezeStatus: OrderDirection
   description: OrderDirection
@@ -957,6 +960,7 @@ input ProposalUpdateInput {
   budgetImageUrls: JSON
   budgetImageUrl: String
   budget: BudgetRelateToOneForUpdateInput
+  cost: Float
   unfreezeStatus: String
   unfreezeHistory: MeetingRelateToManyForUpdateInput
   description: String
@@ -1016,6 +1020,7 @@ input ProposalCreateInput {
   budgetImageUrls: JSON
   budgetImageUrl: String
   budget: BudgetRelateToOneForCreateInput
+  cost: Float
   unfreezeStatus: String
   unfreezeHistory: MeetingRelateToManyForCreateInput
   description: String

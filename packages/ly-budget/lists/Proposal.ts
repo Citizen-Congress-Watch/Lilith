@@ -199,8 +199,14 @@ const listConfigurations = list({
       label: '預算科目',
       ref: 'Budget',
     }),
+    cost: float({
+      label: '預算金額（未關聯預算科目時使用）',
+      db: {
+        isNullable: true,
+      },
+    }),
     budgetAmount: float({
-      label: '編列金額（用於排序）',
+      label: '預算金額（用於排序）',
       db: {
         isNullable: true,
       },
@@ -483,7 +489,7 @@ const listConfigurations = list({
       }
 
       const budgetId = await getBudgetId(item, context)
-      let syncedBudgetAmount: number | null = null
+      let syncedBudgetAmount: number | null = item.cost ?? null
 
       if (budgetId) {
         try {
