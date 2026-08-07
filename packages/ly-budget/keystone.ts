@@ -10,6 +10,7 @@ import { KeyvAdapter } from '@apollo/utils.keyvadapter'
 import { ApolloServerPluginCacheControl } from '@apollo/server/plugin/cacheControl'
 import responseCachePlugin from '@apollo/server-plugin-response-cache'
 import { GraphQLConfig } from '@keystone-6/core/types'
+import { proposalImageThumbnailHandler } from './proposal-image-thumbnail'
 
 const { withAuth } = createAuth({
   listKey: 'User',
@@ -92,6 +93,8 @@ export default withAuth(
       },
       maxFileSize: 2000 * 1024 * 1024,
       extendExpressApp: (app, context) => {
+        app.get('/api/proposal-image-thumbnail', proposalImageThumbnailHandler)
+
         // This middleware is available in Express v4.16.0 onwards
         // Set to 50mb because DraftJS Editor playload could be really large
 

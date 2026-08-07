@@ -1,6 +1,6 @@
 import { list, graphql } from '@keystone-6/core'
 import { utils } from '@mirrormedia/lilith-core'
-import { text, float, select, integer, relationship, multiselect, virtual } from '@keystone-6/core/fields'
+import { text, float, select, integer, relationship, multiselect, virtual, json } from '@keystone-6/core/fields'
 import { gqlReadOnly } from '../access'
 
 const { allowRoles, admin, moderator, editor } = utils.accessControl
@@ -27,6 +27,49 @@ const publishStatusOptions = [
   { value: 'draft', label: '草稿' },
   { value: 'published', label: '已發布' },
 ]
+
+function normalizeBudgetImageUrls(input: unknown): string[] {
+  if (input === null || input === undefined || input === '') return []
+
+  let values: unknown[]
+
+  if (Array.isArray(input)) {
+    values = input
+  } else if (typeof input === 'string') {
+    const value = input.trim()
+
+    if (value.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(value)
+        values = Array.isArray(parsed) ? parsed : [value]
+      } catch {
+        values = value.split(/\r?\n/)
+      }
+    } else {
+      values = value.split(/\r?\n/)
+    }
+  } else {
+    values = [input]
+  }
+
+  if (values.some((value) => typeof value !== 'string')) {
+    throw new Error('預算書圖檔必須是網址字串陣列')
+  }
+
+  const urls = values.map((value) => String(value).trim()).filter(Boolean)
+
+  return [...new Set(urls)]
+}
+
+function replacePrimaryBudgetImageUrl(existingInput: unknown, legacyInput: unknown): string[] {
+  const existingUrls = normalizeBudgetImageUrls(existingInput)
+  const [primaryUrl] = normalizeBudgetImageUrls(legacyInput)
+  const remainingUrls = existingUrls.slice(1)
+
+  return normalizeBudgetImageUrls(
+    primaryUrl ? [primaryUrl, ...remainingUrls] : remainingUrls
+  )
+}
 
 // 輔助函數：獲取 budget ID
 async function getBudgetId(item: Record<string, any>, context: any): Promise<string | null> {
@@ -134,18 +177,36 @@ const listConfigurations = list({
         isNullable: true,
       },
     }),
+    budgetImageUrls: json({
+      label: '預算書圖檔（多張，請以 JSON 網址陣列輸入）',
+      defaultValue: [],
+      db: {
+        map: 'budget_image_urls',
+      },
+    }),
     budgetImageUrl: text({
-      label: '預算書圖檔',
+      label: '預算書圖檔（舊單圖相容欄位）',
       db: {
         isNullable: true,
+      },
+      ui: {
+        listView: { fieldMode: 'hidden' },
+        itemView: { fieldMode: 'hidden' },
+        createView: { fieldMode: 'hidden' },
       },
     }),
     budget: relationship({
       label: '預算科目',
       ref: 'Budget',
     }),
+    cost: float({
+      label: '預算金額（未關聯預算科目時使用）',
+      db: {
+        isNullable: true,
+      },
+    }),
     budgetAmount: float({
-      label: '編列金額（用於排序）',
+      label: '預算金額（用於排序）',
       db: {
         isNullable: true,
       },
@@ -396,13 +457,39 @@ const listConfigurations = list({
   },
 
   hooks: {
+    resolveInput: async ({ resolvedData, inputData, item }) => {
+      if (inputData.budgetImageUrls !== undefined) {
+        const budgetImageUrls = normalizeBudgetImageUrls(resolvedData.budgetImageUrls)
+
+        return {
+          ...resolvedData,
+          budgetImageUrls,
+          budgetImageUrl: budgetImageUrls[0] ?? null,
+        }
+      }
+
+      if (inputData.budgetImageUrl !== undefined) {
+        const budgetImageUrls = replacePrimaryBudgetImageUrl(
+          item?.budgetImageUrls,
+          resolvedData.budgetImageUrl
+        )
+
+        return {
+          ...resolvedData,
+          budgetImageUrls,
+          budgetImageUrl: budgetImageUrls[0] ?? null,
+        }
+      }
+
+      return resolvedData
+    },
     afterOperation: async ({ operation, item, context }) => {
       if (!item?.id || (operation !== 'create' && operation !== 'update')) {
         return
       }
 
       const budgetId = await getBudgetId(item, context)
-      let syncedBudgetAmount: number | null = null
+      let syncedBudgetAmount: number | null = item.cost ?? null
 
       if (budgetId) {
         try {

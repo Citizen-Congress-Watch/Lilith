@@ -25,7 +25,13 @@ steps:
     args:
       - '-c'
       - >
-        cp -r patches yarn.lock packages/$_TARGET_PACKAGE
+        cp -r patches packages/$_TARGET_PACKAGE
+
+        if [ "$_TARGET_PACKAGE" != "ly-budget" ]; then
+
+        cp yarn.lock packages/$_TARGET_PACKAGE
+
+        fi
 
         cd packages/$_TARGET_PACKAGE
 
