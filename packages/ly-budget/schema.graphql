@@ -643,6 +643,7 @@ type BudgetYear {
   year: Int
   budgetProgress: String
   dataProgress: String
+  unfreezeProgress: String
   proposals(where: ProposalWhereInput! = {}, orderBy: [ProposalOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: ProposalWhereUniqueInput): [Proposal!]
   proposalsCount(where: ProposalWhereInput! = {}): Int
   createdAt: DateTime
@@ -664,6 +665,7 @@ input BudgetYearWhereInput {
   year: IntFilter
   budgetProgress: StringFilter
   dataProgress: StringFilter
+  unfreezeProgress: StringNullableFilter
   proposals: ProposalManyRelationFilter
   createdAt: DateTimeNullableFilter
   updatedAt: DateTimeNullableFilter
@@ -682,6 +684,7 @@ input BudgetYearOrderByInput {
   year: OrderDirection
   budgetProgress: OrderDirection
   dataProgress: OrderDirection
+  unfreezeProgress: OrderDirection
   createdAt: OrderDirection
   updatedAt: OrderDirection
 }
@@ -690,6 +693,7 @@ input BudgetYearUpdateInput {
   year: Int
   budgetProgress: String
   dataProgress: String
+  unfreezeProgress: String
   proposals: ProposalRelateToManyForUpdateInput
   createdAt: DateTime
   updatedAt: DateTime
@@ -719,6 +723,7 @@ input BudgetYearCreateInput {
   year: Int
   budgetProgress: String
   dataProgress: String
+  unfreezeProgress: String
   proposals: ProposalRelateToManyForCreateInput
   createdAt: DateTime
   updatedAt: DateTime
@@ -854,6 +859,7 @@ type Proposal {
   unfreezeStatus: String
   unfreezeHistory(where: MeetingWhereInput! = {}, orderBy: [MeetingOrderByInput!]! = [], take: Int, skip: Int! = 0, cursor: MeetingWhereUniqueInput): [Meeting!]
   unfreezeHistoryCount(where: MeetingWhereInput! = {}): Int
+  unfreezeReport: String
   description: String
   reason: String
   react_good: Int
@@ -897,6 +903,7 @@ input ProposalWhereInput {
   budgetAmount: FloatNullableFilter
   unfreezeStatus: StringNullableFilter
   unfreezeHistory: MeetingManyRelationFilter
+  unfreezeReport: StringNullableFilter
   description: StringNullableFilter
   reason: StringNullableFilter
   react_good: IntNullableFilter
@@ -933,6 +940,7 @@ input ProposalOrderByInput {
   cost: OrderDirection
   budgetAmount: OrderDirection
   unfreezeStatus: OrderDirection
+  unfreezeReport: OrderDirection
   description: OrderDirection
   reason: OrderDirection
   react_good: OrderDirection
@@ -963,6 +971,7 @@ input ProposalUpdateInput {
   cost: Float
   unfreezeStatus: String
   unfreezeHistory: MeetingRelateToManyForUpdateInput
+  unfreezeReport: String
   description: String
   reason: String
   react_good: Int
@@ -1023,6 +1032,7 @@ input ProposalCreateInput {
   cost: Float
   unfreezeStatus: String
   unfreezeHistory: MeetingRelateToManyForCreateInput
+  unfreezeReport: String
   description: String
   reason: String
   react_good: Int
