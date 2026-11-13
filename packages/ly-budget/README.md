@@ -94,3 +94,52 @@ yarn db-migrate
   - budgetProgress：government-proposed/中央政府提出預算、committee-review/立法院委員會審議、party-negotiation/黨團協商、plenary-decision/院會決議、final-reviewed/預算三讀通過、presidential-promulgation/預算總統公布
   - dataProgress：in-progress/進行中（預設）、completed/已完成
   - unfreezeProgress：ministry-reporting/部會開始提出解凍報告、legislative-review/立法院審議中、unfreeze-complete/全數凍結案解凍完畢
+
+
+## 安全設定與事件後部署
+
+- `ACCESS_CONTROL_STRATEGY=cms`：保留 CMS 登入及依角色授權的寫入。
+- `ACCESS_CONTROL_STRATEGY=gql` 或 `preview`：所有 list 禁止新增、修改、刪除；移除 User 查詢、登入、首次建帳及資料寫入 mutations；停用 Admin UI 和 session。辨識程式也不能再透過公開 gql 寫入。
+- 未知 strategy 會直接報錯。未設定時沿用 `cms`，但仍必須驗證身分。
+
+CMS 啟動前必須設定 **新的 `CMS_SESSION_SECRET`**。不再接受舊的
+`SESSION_SECRET`，也沒有預設密鑰。請用密碼學亂數產生至少 32 字元的值，例如
+`openssl rand -hex 32`，存入 Secret Manager 後注入 CMS 執行環境；不要把密鑰
+提交到 git 或放進映像檔。所有 CMS instances 使用同一個新值，並把流量完全切離
+舊 revision，才能讓舊 session 全數失效。CMS 缺少有效密鑰時會拒絕啟動；
+`build`/`postinstall` 不需取得執行環境密鑰。公開 gql 不需配置密鑰。
+
+`SESSION_MAX_AGE` 預設為 86400 秒，只接受正整數。正式部署使用
+`NODE_ENV=production`，以啟用 Secure cookie（舊的 `prod` 值也支援）。
+
+部署前確認：
+
+1. 保存事件紀錄及受影響資料的快照；檢查 User 的新增帳號、角色、email 和密碼是否遭修改。
+2. 為 CMS 設定新的 `CMS_SESSION_SECRET`，重新部署 CMS 與公開 gql／preview，移除舊 revision 的流量與可直接存取的標籤網址。
+3. 確認公開查詢正常，所有資料 mutations、User 查詢及登入 mutation 均遭拒絕；舊 cookie／token 不能登入 CMS。
+4. 原本由公開 gql 寫入辨識結果的程式，必須改用受驗證的 CMS 入口及必要角色。
+
+只有 admin 能修改 `role`、`isProtected`。Editor 只能修改自己的 User（以 ID
+判斷）；moderator 不能修改 admin 或受保護帳號。Moderator 建立帳號時省略 role，
+新帳號預設 contributor，再由 admin 授權。公開首次建帳功能已移除；新的空資料庫
+需透過受控的管理程序建立第一位管理員。
+
+可另外為公開 gql 配置只具 SELECT 權限的資料庫帳號，增加資料庫層的限制；目前
+`run.sh` 會執行 migration，採用唯讀帳號前應把 migration 改由獨立部署步驟執行。
+本次程式修正不會自行修改正式資料庫權限或密鑰。
+
+### 安全回歸測試
+
+在 Node 18（與目前 Dockerfile 相同）及安裝依賴後執行：
+
+```bash
+cd packages/ly-budget
+yarn test:security
+```
+
+測試使用 Keystone 產出的實際 schema 與 session 加解密，涵蓋公開服務全 list
+寫入阻擋、匿名 CMS 寫入阻擋、User 權限、偽造 cookie／Bearer token、密鑰輪替
+與缺少安全設定時拒絕啟動。測試不連線正式資料庫；縮圖服務以測試替身隔離。
+
+Keystone 5.2.0 的 `context.db` 要求 schema 仍有 Mutation type，因此唯讀服務
+保留唯一的 `_readOnly` 欄位；呼叫必定失敗，不執行寫入。

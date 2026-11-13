@@ -1,4 +1,5 @@
 {
+  "exclude": ["tests", "node_modules"],
   "compilerOptions": {
     "isolatedModules": true,
     "strict": true,

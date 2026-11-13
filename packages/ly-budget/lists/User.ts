@@ -1,10 +1,7 @@
 import { list } from '@keystone-6/core'
-import { utils } from '@mirrormedia/lilith-core'
 
 import { text, password, select, checkbox } from '@keystone-6/core/fields'
-import { User } from '../access'
-
-const { allowRolesForUsers, admin, moderator, editor } = utils.accessControl
+import { User, isAdmin, userUpdateFilter } from '../access'
 
 const listConfigurations = list({
   fields: {
@@ -25,6 +22,8 @@ const listConfigurations = list({
     role: select({
       label: '角色權限',
       type: 'string',
+      defaultValue: 'contributor',
+      access: { create: isAdmin, update: isAdmin },
       options: [
         {
           label: 'admin',
@@ -47,6 +46,7 @@ const listConfigurations = list({
     }),
     isProtected: checkbox({
       defaultValue: false,
+      access: { create: isAdmin, update: isAdmin },
     }),
   },
 
@@ -57,23 +57,7 @@ const listConfigurations = list({
   },
   access: {
     operation: User,
-  },
-  hooks: {
-	validateInput: async ({
-	  listKey,
-	  operation,
-	  inputData,
-	  item,
-	  resolvedData,
-	  context,
-	  addValidationError,
-	}) => { /* ... */ 
-	  if (operation === 'update') {
-		if (context!.session?.data?.name !== item?.name && (context!.session?.data?.role === 'editor')) {
-		  addValidationError("沒有修改權限")
-		}
-	  }
-	},
+    filter: { update: userUpdateFilter },
   },
 })
 
