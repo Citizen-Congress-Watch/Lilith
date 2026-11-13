@@ -116,6 +116,9 @@ test('CMS rejects anonymous/invalid identities and enforces account ownership an
         {},
         { data: { role: 'admin' } },
         { ...identity('admin'), itemId: '2' },
+        ...[0, -1, 1.5, NaN, Infinity, true, {}, ['1'], '01', '1.0'].map(
+          (itemId) => ({ ...identity('admin'), itemId })
+        ),
         { ...identity('admin'), listKey: 'Other' },
       ]) {
         assert.equal(await check({ session }), false)
@@ -271,27 +274,46 @@ test('anonymous CMS GraphQL mutations fail before reaching the database', async 
   }
 })
 
-test('authenticated sessions reload the role from the database and reject deleted users', async () => {
-  const config = load('cms')
-  process.env.CMS_SESSION_SECRET = randomBytes(32).toString('hex')
-  const token = await config.session.start({
-    data: identity('admin'),
-    context: { res: { setHeader() {} } },
-  })
-  const context = {
-    req: { headers: { cookie: `keystonejs-session=${token}` } },
-    sudo: () => ({
-      query: {
-        User: {
-          findOne: async ({ where }) => {
-            assert.equal(where.id, '1')
-            return { id: '1', name: 'same-name', role: 'contributor' }
+for (const itemId of [1, '1']) {
+  test(`authenticated ${typeof itemId} IDs can access CMS, reload roles and reject deleted users`, async () => {
+    const config = load('cms')
+    process.env.CMS_SESSION_SECRET = randomBytes(32).toString('hex')
+    const token = await config.session.start({
+      data: { ...identity('admin'), itemId },
+      context: { res: { setHeader() {} } },
+    })
+    const context = {
+      req: { headers: { cookie: `keystonejs-session=${token}` } },
+      sudo: () => ({
+        query: {
+          User: {
+            findOne: async ({ where }) => {
+              assert.equal(where.id, itemId)
+              return { id: '1', name: 'same-name', role: 'contributor' }
+            },
           },
         },
-      },
-    }),
-  }
-  assert.equal((await config.session.get({ context })).data.role, 'contributor')
-  context.sudo = () => ({ query: { User: { findOne: async () => null } } })
-  assert.equal(await config.session.get({ context }), undefined)
-})
+      }),
+    }
+    const session = await config.session.get({ context })
+    assert.equal(session.data.role, 'contributor')
+    const access = require('../access.ts')
+    assert.equal(await config.ui.isAccessAllowed({ session }), true)
+    assert.equal(access.isAdmin({ session }), false)
+    context.sudo = () => ({
+      query: { User: { findOne: async () => ({ id: '1', role: 'admin' }) } },
+    })
+    const adminSession = await config.session.get({ context })
+    assert.equal(
+      await config.ui.isAccessAllowed({ session: adminSession }),
+      true
+    )
+    assert.equal(access.isAdmin({ session: adminSession }), true)
+    assert.equal(
+      access.isAdmin({ session: { ...adminSession, itemId: 2 } }),
+      false
+    )
+    context.sudo = () => ({ query: { User: { findOne: async () => null } } })
+    assert.equal(await config.session.get({ context }), undefined)
+  })
+}

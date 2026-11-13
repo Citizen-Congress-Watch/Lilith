@@ -10,6 +10,15 @@ type Access = ListOperationAccessControl<
   BaseListTypeInfo
 >
 
+// Password authentication keeps Prisma's numeric autoincrement ID in the signed
+// session, while sessionData resolves the same ID as a GraphQL string.
+function userId(value: unknown): string | undefined {
+  if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
+    return String(value)
+  if (typeof value === 'string' && /^[1-9]\d*$/.test(value)) return value
+  return undefined
+}
+
 // Only accept the User identity loaded by createAuth after cookie verification.
 // Do not use lilith-core's allowRoles: it bypasses authentication in gql/preview.
 export const allowRoles =
@@ -17,8 +26,8 @@ export const allowRoles =
   ({ session }) =>
     accessControlStrategy === 'cms' &&
     session?.listKey === 'User' &&
-    typeof session.itemId === 'string' &&
-    session.itemId === session.data?.id &&
+    userId(session.itemId) !== undefined &&
+    userId(session.itemId) === userId(session.data?.id) &&
     roles.includes(session.data?.role)
 
 export const isAdmin = allowRoles('admin')
