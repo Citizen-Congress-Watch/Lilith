@@ -4,7 +4,10 @@ import { listDefinition as lists } from './lists'
 import envVar from './environment-variables'
 import express from 'express'
 import { createAuth } from '@keystone-6/auth'
-import { statelessSessions } from '@keystone-6/core/session'
+import { createCmsSession } from './session'
+import { isReadOnly } from './security-config'
+import { canUseAdminUI } from './access'
+import { readOnlySchema } from './read-only-schema'
 import Keyv from 'keyv'
 import { KeyvAdapter } from '@apollo/utils.keyvadapter'
 import { ApolloServerPluginCacheControl } from '@apollo/server/plugin/cacheControl'
@@ -17,14 +20,9 @@ const { withAuth } = createAuth({
   identityField: 'email',
   sessionData: 'id name role',
   secretField: 'password',
-  initFirstItem: {
-    // If there are no items in the database, keystone will ask you to create
-    // a new user, filling in these fields.
-    fields: ['name', 'email', 'password', 'role'],
-  },
 })
 
-const session = statelessSessions(envVar.session)
+const cmsSession = isReadOnly ? undefined : createCmsSession()
 
 const graphqlConfig: GraphQLConfig = {
   apolloConfig:
@@ -48,83 +46,89 @@ const graphqlConfig: GraphQLConfig = {
       : undefined,
 }
 
-export default withAuth(
-  config({
-    db: {
-      provider: envVar.database.provider,
-      url: envVar.database.url,
-      idField: {
-        kind: 'autoincrement',
-      },
+const keystoneConfig = config({
+  db: {
+    provider: envVar.database.provider,
+    url: envVar.database.url,
+    idField: {
+      kind: 'autoincrement',
     },
-    ui: {
-      // If `isDisabled` is set to `true` then the Admin UI will be completely disabled.
-      isDisabled: envVar.isUIDisabled,
-      // For our starter, we check that someone has session data before letting them see the Admin UI.
-      isAccessAllowed: (context) => !!context.session?.data,
+  },
+  ui: {
+    // If `isDisabled` is set to `true` then the Admin UI will be completely disabled.
+    isDisabled: envVar.isUIDisabled,
+    isAccessAllowed: (context) =>
+      canUseAdminUI({
+        session: context.session,
+        context,
+        listKey: 'User',
+        operation: 'query',
+      }),
+  },
+  graphql: graphqlConfig,
+  extendGraphqlSchema: isReadOnly ? readOnlySchema : undefined,
+  lists,
+  session: cmsSession?.session,
+  storage: {
+    files: {
+      kind: 'local',
+      type: 'file',
+      storagePath: envVar.files.storagePath,
+      serverRoute: {
+        path: '/files',
+      },
+      generateUrl: (path) => `${envVar.files.baseUrl}${path}`,
     },
-    graphql: graphqlConfig,
-    lists,
-    session,
-    storage: {
-      files: {
-        kind: 'local',
-        type: 'file',
-        storagePath: envVar.files.storagePath,
-        serverRoute: {
-          path: '/files',
-        },
-        generateUrl: (path) => `${envVar.files.baseUrl}${path}`,
+    images: {
+      kind: 'local',
+      type: 'image',
+      storagePath: envVar.images.storagePath,
+      serverRoute: {
+        path: '/images',
       },
-      images: {
-        kind: 'local',
-        type: 'image',
-        storagePath: envVar.images.storagePath,
-        serverRoute: {
-          path: '/images',
-        },
-        generateUrl: (path) => `${envVar.images.baseUrl}${path}`,
-      },
+      generateUrl: (path) => `${envVar.images.baseUrl}${path}`,
     },
-    server: {
-      healthCheck: {
-        path: '/health_check',
-        data: { status: 'healthy' },
-      },
-      maxFileSize: 2000 * 1024 * 1024,
-      extendExpressApp: (app, context) => {
-        app.get('/api/proposal-image-thumbnail', proposalImageThumbnailHandler)
-
-        // This middleware is available in Express v4.16.0 onwards
-        // Set to 50mb because DraftJS Editor playload could be really large
-
-        const jsonBodyParser = express.json({ limit: '500mb' })
-        app.use(jsonBodyParser)
-
-        // Enable CORS for non-production environments
-        if (process.env.NODE_ENV !== 'prod') {
-          app.use((req, res, next) => {
-            res.header('Access-Control-Allow-Origin', '*')
-            res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-            res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-            
-            if (req.method === 'OPTIONS') {
-              res.sendStatus(200)
-            } else {
-              next()
-            }
-          })
-        }
-
-        //if (envVar.accessControlStrategy === 'cms') {
-        //  app.use(
-        //    createPreviewMiniApp({
-        //      previewServer: envVar.previewServer,
-        //      keystoneContext: context,
-        //    })
-        //  )
-        //}
-      },
+  },
+  server: {
+    healthCheck: {
+      path: '/health_check',
+      data: { status: 'healthy' },
     },
-  })
-)
+    maxFileSize: 2000 * 1024 * 1024,
+    extendExpressApp: (app) => {
+      // Fail closed before serving HTTP if the CMS secret is missing or unsafe.
+      cmsSession?.initialize()
+      app.get('/api/proposal-image-thumbnail', proposalImageThumbnailHandler)
+
+      // This middleware is available in Express v4.16.0 onwards
+      // Set to 50mb because DraftJS Editor playload could be really large
+
+      const jsonBodyParser = express.json({ limit: '500mb' })
+      app.use(jsonBodyParser)
+
+      // Enable CORS for non-production environments
+      if (process.env.NODE_ENV === 'development') {
+        app.use((req, res, next) => {
+          res.header('Access-Control-Allow-Origin', '*')
+          res.header(
+            'Access-Control-Allow-Methods',
+            'GET, POST, PUT, DELETE, OPTIONS'
+          )
+          res.header(
+            'Access-Control-Allow-Headers',
+            'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+          )
+
+          if (req.method === 'OPTIONS') {
+            res.sendStatus(200)
+          } else {
+            next()
+          }
+        })
+      }
+    },
+  },
+})
+
+// Public services have no authentication/bootstrap/logout mutations or sessions.
+export default isReadOnly ? keystoneConfig : withAuth(keystoneConfig)

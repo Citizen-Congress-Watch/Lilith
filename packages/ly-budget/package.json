@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "ly budget data platform",
   "scripts": {
+    "test:security": "node --test tests/security.test.cjs",
     "dev": "keystone dev",
     "start": "keystone start",
     "db-migrate": "keystone prisma migrate deploy",
