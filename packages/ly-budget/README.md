@@ -124,8 +124,13 @@ CMS 啟動前必須設定 **新的 `CMS_SESSION_SECRET`**。不再接受舊的
 新帳號預設 contributor，再由 admin 授權。公開首次建帳功能已移除；新的空資料庫
 需透過受控的管理程序建立第一位管理員。
 
-可另外為公開 gql 配置只具 SELECT 權限的資料庫帳號，增加資料庫層的限制；目前
-`run.sh` 會執行 migration，採用唯讀帳號前應把 migration 改由獨立部署步驟執行。
+共用映像在建置時產生 CMS schema。`run.sh` 只在 `cms` 模式執行 migration；
+`gql`／`preview` 直接以各自的唯讀設定啟動，不執行資料庫遷移，也不需要 session
+密鑰。部署順序應先 CMS、再公開服務，讓 CMS 先完成資料庫遷移。
+不要在公開服務啟動時執行 `keystone prisma migrate deploy`：Keystone 會檢查
+建置時的 CMS schema，與執行時的唯讀 schema 不同而拒絕啟動。
+
+可另外為公開 gql 配置只具 SELECT 權限的資料庫帳號，增加資料庫層的限制。
 本次程式修正不會自行修改正式資料庫權限或密鑰。
 
 ### 安全回歸測試
@@ -139,7 +144,8 @@ yarn test:security
 
 測試使用 Keystone 產出的實際 schema 與 session 加解密，涵蓋公開服務全 list
 寫入阻擋、匿名 CMS 寫入阻擋、User 權限、偽造 cookie／Bearer token、密鑰輪替
-與缺少安全設定時拒絕啟動。測試不連線正式資料庫；縮圖服務以測試替身隔離。
+與缺少安全設定時拒絕啟動，以及 CMS／唯讀模式的容器啟動流程。
+測試不連線正式資料庫；縮圖、掛載和外部啟動命令以測試替身隔離。
 
 Keystone 5.2.0 的 `context.db` 要求 schema 仍有 Mutation type，因此唯讀服務
 保留唯一的 `_readOnly` 欄位；呼叫必定失敗，不執行寫入。
