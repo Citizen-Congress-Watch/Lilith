@@ -34,3 +34,24 @@ export function readSessionMaxAge(value = process.env.SESSION_MAX_AGE): number {
   }
   return maxAge
 }
+
+export function readCmsOrigin(env = process.env): URL {
+  if (!env.CMS_ORIGIN)
+    throw new Error('Set CMS_ORIGIN to the canonical CMS origin')
+  const origin = new URL(env.CMS_ORIGIN)
+  const production = env.NODE_ENV === 'production' || env.NODE_ENV === 'prod'
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname)
+  if (
+    origin.username ||
+    origin.password ||
+    origin.search ||
+    origin.hash ||
+    origin.pathname !== '/' ||
+    (origin.protocol !== 'https:' &&
+      !(origin.protocol === 'http:' && local && !production))
+  )
+    throw new Error(
+      'CMS_ORIGIN must be an HTTPS origin (HTTP localhost is allowed in development)'
+    )
+  return origin
+}

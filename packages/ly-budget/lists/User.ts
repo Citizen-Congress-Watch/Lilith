@@ -1,6 +1,6 @@
 import { list } from '@keystone-6/core'
 
-import { text, password, select, checkbox } from '@keystone-6/core/fields'
+import { text, select, checkbox } from '@keystone-6/core/fields'
 import { User, isAdmin, userUpdateFilter } from '../access'
 
 const listConfigurations = list({
@@ -14,10 +14,38 @@ const listConfigurations = list({
       validation: { isRequired: true },
       isIndexed: 'unique',
       isFilterable: true,
+      access: { update: isAdmin },
+      hooks: {
+        resolveInput: ({ resolvedData, fieldKey }) => {
+          const value = resolvedData[fieldKey]
+          return typeof value === 'string' ? value.trim().toLowerCase() : value
+        },
+      },
     }),
-    password: password({
-      label: '密碼',
-      validation: { isRequired: true },
+    googleSubject: text({
+      label: 'Google 帳號識別碼',
+      db: { isNullable: true },
+      isIndexed: 'unique',
+      access: {
+        read: (args) => isAdmin({ ...args, operation: 'query' }),
+        create: isAdmin,
+        update: isAdmin,
+      },
+      ui: {
+        description:
+          'Google 的 sub。通常在首次登入時自動綁定；只有管理員可以重設。',
+      },
+      hooks: {
+        resolveInput: ({ resolvedData, fieldKey }) => {
+          const value = resolvedData[fieldKey]
+          return typeof value === 'string' ? value.trim() || null : value
+        },
+      },
+    }),
+    isActive: checkbox({
+      label: '允許登入',
+      defaultValue: true,
+      access: { create: isAdmin, update: isAdmin },
     }),
     role: select({
       label: '角色權限',
@@ -52,7 +80,7 @@ const listConfigurations = list({
 
   ui: {
     listView: {
-      initialColumns: ['name', 'role'],
+      initialColumns: ['name', 'email', 'role', 'isActive'],
     },
   },
   access: {

@@ -5,13 +5,21 @@ const os = require('node:os')
 const path = require('node:path')
 const { spawnSync } = require('node:child_process')
 
-function startup(strategy, migrationFails = false) {
+function startup(strategy, migrationFails = false, runtimeInvalid = false) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ly-budget-startup-'))
   try {
     const log = path.join(temp, 'commands')
     fs.writeFileSync(path.join(temp, 'gcsfuse'), '#!/bin/sh\nexit 0\n', {
       mode: 0o755,
     })
+    fs.writeFileSync(
+      path.join(temp, 'node'),
+      `#!/bin/sh
+printf '%s:validate-runtime\\n' "\${ACCESS_CONTROL_STRATEGY:-cms}" >> "$STARTUP_TEST_LOG"
+[ "$STARTUP_TEST_INVALID_RUNTIME" != true ] || exit 43
+`,
+      { mode: 0o755 }
+    )
     fs.writeFileSync(
       path.join(temp, 'yarn'),
       `#!/bin/sh
@@ -31,6 +39,7 @@ fi
       GCS_BUCKET: 'test-bucket',
       STARTUP_TEST_LOG: log,
       STARTUP_TEST_FAIL_MIGRATION: String(migrationFails),
+      STARTUP_TEST_INVALID_RUNTIME: String(runtimeInvalid),
     }
     delete env.CMS_SESSION_SECRET
     delete env.SESSION_SECRET
@@ -63,14 +72,27 @@ for (const strategy of ['cms', undefined, '']) {
   test(`CMS startup (${String(strategy)}) migrates before starting`, () => {
     const result = startup(strategy)
     assert.equal(result.status, 0, result.stderr)
-    assert.deepEqual(result.commands, ['cms:run db-migrate', 'cms:start'])
+    assert.deepEqual(result.commands, [
+      'cms:validate-runtime',
+      'cms:run db-migrate',
+      'cms:start',
+    ])
   })
 }
 
 test('a failed CMS migration prevents startup', () => {
   const result = startup('cms', true)
   assert.equal(result.status, 42)
-  assert.deepEqual(result.commands, ['cms:run db-migrate'])
+  assert.deepEqual(result.commands, [
+    'cms:validate-runtime',
+    'cms:run db-migrate',
+  ])
+})
+
+test('invalid CMS OAuth configuration prevents database migrations', () => {
+  const result = startup('cms', false, true)
+  assert.equal(result.status, 43)
+  assert.deepEqual(result.commands, ['cms:validate-runtime'])
 })
 
 test('an unknown strategy fails before migrations or startup', () => {

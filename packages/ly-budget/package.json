@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "ly budget data platform",
   "scripts": {
-    "test:security": "node --test tests/security.test.cjs tests/startup.test.cjs",
+    "test:security": "node --test tests/security.test.cjs tests/startup.test.cjs tests/google-auth.test.cjs",
     "dev": "keystone dev",
     "start": "keystone start",
     "db-migrate": "keystone prisma migrate deploy",
@@ -22,7 +22,6 @@
     "@google-cloud/storage": "^6.12.0",
     "@emotion/react": "^11.7.1",
     "@emotion/styled": "11.11.0",
-    "@keystone-6/auth": "7.0.0",
     "@keystone-6/core": "5.2.0",
     "@keyv/redis": "^2.7.0",
     "@keystone-6/fields-document": "8.0.0",
@@ -35,7 +34,10 @@
     "patch-package": "^6.4.7",
     "redis-errors": "^1.2.0",
     "redis-parser": "^3.0.0",
-    "sharp": "0.33.5"
+    "sharp": "0.33.5",
+    "@hapi/iron": "^7.0.0",
+    "cookie": "0.7.1",
+    "google-auth-library": "^10.5.0"
   },
   "resolutions": {
     "**/react": "18.2.0",

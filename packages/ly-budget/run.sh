@@ -21,6 +21,7 @@ echo "Mounting completed."
 
 # Public services start directly with their runtime read-only configuration.
 if [ "$strategy" = cms ]; then
+  node -e "require('./.keystone/config.js').validateCmsRuntime()"
   yarn run db-migrate
 fi
 

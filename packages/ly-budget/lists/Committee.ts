@@ -6,6 +6,11 @@ import { gqlReadOnly } from '../access'
 const { allowRoles, admin, moderator, editor } = utils.accessControl
 
 const listConfigurations = list({
+  // Preserve the database constraint already installed by the 20251218 migration.
+  db: {
+    extendPrismaSchema: (schema) =>
+      schema.replace(/\n}$/, '\n  @@unique([termId, session, name])\n}'),
+  },
   fields: {
     term: relationship({
       label: '第幾屆立法院',
