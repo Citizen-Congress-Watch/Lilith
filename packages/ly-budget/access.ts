@@ -10,8 +10,7 @@ type Access = ListOperationAccessControl<
   BaseListTypeInfo
 >
 
-// Password authentication keeps Prisma's numeric autoincrement ID in the signed
-// session, while sessionData resolves the same ID as a GraphQL string.
+// Prisma uses numeric autoincrement IDs; GraphQL exposes the same IDs as strings.
 function userId(value: unknown): string | undefined {
   if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
     return String(value)
@@ -19,7 +18,7 @@ function userId(value: unknown): string | undefined {
   return undefined
 }
 
-// Only accept the User identity loaded by createAuth after cookie verification.
+// Only accept the current User identity loaded after Google session verification.
 // Do not use lilith-core's allowRoles: it bypasses authentication in gql/preview.
 export const allowRoles =
   (...roles: Role[]): Access =>
@@ -69,7 +68,7 @@ export const User = {
 }
 
 // Editors may only edit themselves. Moderators cannot take over an admin account
-// by replacing its email/password, or change another protected account.
+// or change another protected account. Login identity fields are admin-only.
 export const userUpdateFilter = ({ session }: Parameters<Access>[0]) => {
   if (accessControlStrategy !== 'cms') return false
   if (session?.data?.role === 'admin') return true

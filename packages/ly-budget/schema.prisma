@@ -15,8 +15,9 @@ model User {
   id                        Int          @id @default(autoincrement())
   name                      String       @default("")
   email                     String       @unique @default("")
-  password                  String
-  role                      String
+  googleSubject             String?      @unique
+  isActive                  Boolean      @default(true)
+  role                      String       @default("contributor")
   isProtected               Boolean      @default(false)
   from_BudgetYear_createdBy BudgetYear[] @relation("BudgetYear_createdBy")
   from_BudgetYear_updatedBy BudgetYear[] @relation("BudgetYear_updatedBy")
@@ -44,8 +45,8 @@ model Committee {
   description            String?
   from_Meeting_committee Meeting[] @relation("Meeting_committee")
 
-  @@index([termId])
   @@unique([termId, session, name])
+  @@index([termId])
 }
 
 model People {
@@ -102,18 +103,18 @@ model Budget {
 }
 
 model BudgetYear {
-  id             Int        @id @default(autoincrement())
-  year           Int        @unique
-  budgetProgress String
-  dataProgress   String     @default("in-progress")
+  id               Int        @id @default(autoincrement())
+  year             Int        @unique
+  budgetProgress   String
+  dataProgress     String     @default("in-progress")
   unfreezeProgress String?
-  proposals      Proposal[] @relation("Proposal_year")
-  createdAt      DateTime?
-  updatedAt      DateTime?
-  createdBy      User?      @relation("BudgetYear_createdBy", fields: [createdById], references: [id])
-  createdById    Int?       @map("createdBy")
-  updatedBy      User?      @relation("BudgetYear_updatedBy", fields: [updatedById], references: [id])
-  updatedById    Int?       @map("updatedBy")
+  proposals        Proposal[] @relation("Proposal_year")
+  createdAt        DateTime?
+  updatedAt        DateTime?
+  createdBy        User?      @relation("BudgetYear_createdBy", fields: [createdById], references: [id])
+  createdById      Int?       @map("createdBy")
+  updatedBy        User?      @relation("BudgetYear_updatedBy", fields: [updatedById], references: [id])
+  updatedById      Int?       @map("updatedBy")
 
   @@index([createdById])
   @@index([updatedById])

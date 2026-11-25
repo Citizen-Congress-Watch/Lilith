@@ -3,8 +3,12 @@ import { config } from '@keystone-6/core'
 import { listDefinition as lists } from './lists'
 import envVar from './environment-variables'
 import express from 'express'
-import { createAuth } from '@keystone-6/auth'
 import { createCmsSession } from './session'
+import {
+  registerGoogleOAuth,
+  googleAuthSchema,
+  readGoogleOAuthConfig,
+} from './google-auth'
 import { isReadOnly } from './security-config'
 import { canUseAdminUI } from './access'
 import { readOnlySchema } from './read-only-schema'
@@ -15,14 +19,16 @@ import responseCachePlugin from '@apollo/server-plugin-response-cache'
 import { GraphQLConfig } from '@keystone-6/core/types'
 import { proposalImageThumbnailHandler } from './proposal-image-thumbnail'
 
-const { withAuth } = createAuth({
-  listKey: 'User',
-  identityField: 'email',
-  sessionData: 'id name role',
-  secretField: 'password',
-})
-
 const cmsSession = isReadOnly ? undefined : createCmsSession()
+
+// run.sh invokes this before migrations, so missing OAuth settings cannot remove
+// password support from the database and then leave the CMS unable to start.
+export function validateCmsRuntime() {
+  if (cmsSession) {
+    cmsSession.initialize()
+    readGoogleOAuthConfig()
+  }
+}
 
 const graphqlConfig: GraphQLConfig = {
   apolloConfig:
@@ -57,6 +63,12 @@ const keystoneConfig = config({
   ui: {
     // If `isDisabled` is set to `true` then the Admin UI will be completely disabled.
     isDisabled: envVar.isUIDisabled,
+    publicPages: isReadOnly ? [] : ['/signin'],
+    pageMiddleware: isReadOnly
+      ? undefined
+      : async ({ wasAccessAllowed }) => {
+          if (!wasAccessAllowed) return { kind: 'redirect', to: '/signin' }
+        },
     isAccessAllowed: (context) =>
       canUseAdminUI({
         session: context.session,
@@ -66,7 +78,7 @@ const keystoneConfig = config({
       }),
   },
   graphql: graphqlConfig,
-  extendGraphqlSchema: isReadOnly ? readOnlySchema : undefined,
+  extendGraphqlSchema: isReadOnly ? readOnlySchema : googleAuthSchema,
   lists,
   session: cmsSession?.session,
   storage: {
@@ -95,9 +107,10 @@ const keystoneConfig = config({
       data: { status: 'healthy' },
     },
     maxFileSize: 2000 * 1024 * 1024,
-    extendExpressApp: (app) => {
+    extendExpressApp: (app, context) => {
       // Fail closed before serving HTTP if the CMS secret is missing or unsafe.
-      cmsSession?.initialize()
+      validateCmsRuntime()
+      if (cmsSession) registerGoogleOAuth(app, context, cmsSession.session)
       app.get('/api/proposal-image-thumbnail', proposalImageThumbnailHandler)
 
       // This middleware is available in Express v4.16.0 onwards
@@ -131,4 +144,4 @@ const keystoneConfig = config({
 })
 
 // Public services have no authentication/bootstrap/logout mutations or sessions.
-export default isReadOnly ? keystoneConfig : withAuth(keystoneConfig)
+export default keystoneConfig

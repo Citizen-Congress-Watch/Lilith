@@ -5,18 +5,16 @@ type User {
   id: ID!
   name: String
   email: String
-  password: PasswordState
+  googleSubject: String
+  isActive: Boolean
   role: String
   isProtected: Boolean
-}
-
-type PasswordState {
-  isSet: Boolean!
 }
 
 input UserWhereUniqueInput {
   id: ID
   email: String
+  googleSubject: String
 }
 
 input UserWhereInput {
@@ -26,6 +24,8 @@ input UserWhereInput {
   id: IDFilter
   name: StringFilter
   email: StringFilter
+  googleSubject: StringNullableFilter
+  isActive: BooleanFilter
   role: StringFilter
   isProtected: BooleanFilter
 }
@@ -75,6 +75,35 @@ input NestedStringFilter {
   not: NestedStringFilter
 }
 
+input StringNullableFilter {
+  equals: String
+  in: [String!]
+  notIn: [String!]
+  lt: String
+  lte: String
+  gt: String
+  gte: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  mode: QueryMode
+  not: NestedStringNullableFilter
+}
+
+input NestedStringNullableFilter {
+  equals: String
+  in: [String!]
+  notIn: [String!]
+  lt: String
+  lte: String
+  gt: String
+  gte: String
+  contains: String
+  startsWith: String
+  endsWith: String
+  not: NestedStringNullableFilter
+}
+
 input BooleanFilter {
   equals: Boolean
   not: BooleanFilter
@@ -84,6 +113,8 @@ input UserOrderByInput {
   id: OrderDirection
   name: OrderDirection
   email: OrderDirection
+  googleSubject: OrderDirection
+  isActive: OrderDirection
   role: OrderDirection
   isProtected: OrderDirection
 }
@@ -96,7 +127,8 @@ enum OrderDirection {
 input UserUpdateInput {
   name: String
   email: String
-  password: String
+  googleSubject: String
+  isActive: Boolean
   role: String
   isProtected: Boolean
 }
@@ -109,7 +141,8 @@ input UserUpdateArgs {
 input UserCreateInput {
   name: String
   email: String
-  password: String
+  googleSubject: String
+  isActive: Boolean
   role: String
   isProtected: Boolean
 }
@@ -171,35 +204,6 @@ input DateTimeNullableFilter {
   gt: DateTime
   gte: DateTime
   not: DateTimeNullableFilter
-}
-
-input StringNullableFilter {
-  equals: String
-  in: [String!]
-  notIn: [String!]
-  lt: String
-  lte: String
-  gt: String
-  gte: String
-  contains: String
-  startsWith: String
-  endsWith: String
-  mode: QueryMode
-  not: NestedStringNullableFilter
-}
-
-input NestedStringNullableFilter {
-  equals: String
-  in: [String!]
-  notIn: [String!]
-  lt: String
-  lte: String
-  gt: String
-  gte: String
-  contains: String
-  startsWith: String
-  endsWith: String
-  not: NestedStringNullableFilter
 }
 
 input TermOrderByInput {
@@ -1331,26 +1335,6 @@ type Mutation {
   deleteRecognitionStatus(where: RecognitionStatusWhereUniqueInput!): RecognitionStatus
   deleteRecognitionStatuses(where: [RecognitionStatusWhereUniqueInput!]!): [RecognitionStatus]
   endSession: Boolean!
-  authenticateUserWithPassword(email: String!, password: String!): UserAuthenticationWithPasswordResult
-  createInitialUser(data: CreateInitialUserInput!): UserAuthenticationWithPasswordSuccess!
-}
-
-union UserAuthenticationWithPasswordResult = UserAuthenticationWithPasswordSuccess | UserAuthenticationWithPasswordFailure
-
-type UserAuthenticationWithPasswordSuccess {
-  sessionToken: String!
-  item: User!
-}
-
-type UserAuthenticationWithPasswordFailure {
-  message: String!
-}
-
-input CreateInitialUserInput {
-  name: String
-  email: String
-  password: String
-  role: String
 }
 
 type Query {

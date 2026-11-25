@@ -182,6 +182,8 @@ const listConfigurations = list({
       defaultValue: [],
       db: {
         map: 'budget_image_urls',
+        // Match the existing NOT NULL column when Keystone regenerates schemas.
+        extendPrismaSchema: (field) => field.replace('Json?', 'Json'),
       },
     }),
     budgetImageUrl: text({

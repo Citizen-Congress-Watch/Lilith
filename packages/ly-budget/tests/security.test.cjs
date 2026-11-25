@@ -30,6 +30,7 @@ const { createSystem, initConfig } = require('@keystone-6/core/system')
 const { graphql, validateSchema } = require('graphql')
 const Iron = require('@hapi/iron')
 const root = path.resolve(__dirname, '..')
+process.env.CMS_ORIGIN = 'https://cms.example.com'
 function load(strategy) {
   process.env.ACCESS_CONTROL_STRATEGY = strategy
   process.env.IS_CACHE_ENABLED = 'false'
@@ -101,7 +102,20 @@ test('CMS rejects anonymous/invalid identities and enforces account ownership an
   const access = require('../access.ts')
   const { graphQLSchema: schema } = createSystem(initConfig(config))
   assert.deepEqual(validateSchema(schema), [])
-  assert.ok(schema.getMutationType().getFields().authenticateUserWithPassword)
+  assert.equal(
+    schema.getMutationType().getFields().authenticateUserWithPassword,
+    undefined
+  )
+  assert.ok(schema.getMutationType().getFields().endSession)
+  assert.ok(schema.getQueryType().getFields().authenticatedItem)
+  assert.equal(
+    schema.getType('UserCreateInput').getFields().password,
+    undefined
+  )
+  assert.equal(
+    schema.getType('UserUpdateInput').getFields().password,
+    undefined
+  )
   assert.equal(
     schema.getMutationType().getFields().createInitialUser,
     undefined
@@ -147,7 +161,7 @@ test('CMS rejects anonymous/invalid identities and enforces account ownership an
       ],
     }
   )
-  for (const field of ['role', 'isProtected']) {
+  for (const field of ['role', 'isProtected', 'isActive', 'googleSubject']) {
     const definition = config.lists.User.fields[field]({
       listKey: 'User',
       fieldKey: field,
@@ -168,6 +182,19 @@ test('CMS rejects anonymous/invalid identities and enforces account ownership an
         true
       )
     }
+  }
+  // A member must not be able to move their account to another Google email.
+  const email = config.lists.User.fields.email({
+    listKey: 'User',
+    fieldKey: 'email',
+    lists: {},
+    provider: 'postgresql',
+  })
+  for (const role of ['contributor', 'editor', 'moderator', 'admin']) {
+    assert.equal(
+      email.access.update({ session: identity(role) }),
+      role === 'admin'
+    )
   }
 })
 
@@ -203,11 +230,18 @@ test('session secrets fail closed; forged cookies/Bearer tokens and rotated toke
   const { session } = createCmsSession()
   let setCookie
   const token = await session.start({
-    data: { listKey: 'User', itemId: '1' },
+    data: {
+      auth: 'google-v1',
+      listKey: 'User',
+      itemId: '1',
+      googleSubject: 'google-1',
+      email: 'member@example.com',
+    },
     context: {
       res: {
+        getHeader() {},
         setHeader: (name, value) => {
-          setCookie = value
+          setCookie = value.join('; ')
         },
       },
     },
@@ -218,10 +252,27 @@ test('session secrets fail closed; forged cookies/Bearer tokens and rotated toke
   const get = (candidate, bearer = false) =>
     session.get({
       context: {
+        sudo: () => ({
+          db: {
+            User: {
+              findOne: async () => ({
+                id: 1,
+                name: 'User',
+                role: 'admin',
+                isActive: true,
+                googleSubject: 'google-1',
+                email: 'member@example.com',
+              }),
+            },
+          },
+        }),
         req: {
           headers: bearer
             ? { authorization: `Bearer ${candidate}` }
-            : { cookie: `keystonejs-session=${candidate}` },
+            : {
+                host: 'cms.example.com',
+                cookie: `__Host-ly-budget-session=${candidate}`,
+              },
         },
       },
     })
@@ -274,22 +325,83 @@ test('anonymous CMS GraphQL mutations fail before reaching the database', async 
   }
 })
 
+test('Keystone request context never trusts injected session objects or token parameters', async () => {
+  const config = load('cms')
+  class NoDatabaseClient {}
+  const { context } = createSystem(initConfig(config)).getKeystone({
+    PrismaClient: NoDatabaseClient,
+    Prisma: {},
+  })
+  for (const injected of [
+    { session: identity('admin'), body: { session: identity('admin') } },
+    { query: { token: JSON.stringify(identity('admin')) } },
+    {
+      headers: { authorization: 'Bearer ' + JSON.stringify(identity('admin')) },
+    },
+    {
+      headers: {
+        cookie: '__Host-ly-budget-session=' + JSON.stringify(identity('admin')),
+      },
+    },
+  ]) {
+    const req = {
+      ...injected,
+      method: 'POST',
+      headers: {
+        host: 'cms.example.com',
+        origin: process.env.CMS_ORIGIN,
+        ...injected.headers,
+      },
+    }
+    const requestContext = await context.withRequest(req)
+    assert.equal(requestContext.session, undefined)
+    const result = await requestContext.graphql.raw({
+      query:
+        'mutation { updateUser(where: {id:"1"}, data: {role:"admin"}) { id } }',
+    })
+    assert.ok(result.errors?.length)
+    assert.ok(
+      result.errors.every(
+        (error) => error.extensions.code === 'KS_ACCESS_DENIED'
+      )
+    )
+  }
+})
+
 for (const itemId of [1, '1']) {
   test(`authenticated ${typeof itemId} IDs can access CMS, reload roles and reject deleted users`, async () => {
     const config = load('cms')
     process.env.CMS_SESSION_SECRET = randomBytes(32).toString('hex')
     const token = await config.session.start({
-      data: { ...identity('admin'), itemId },
-      context: { res: { setHeader() {} } },
+      data: {
+        ...identity('admin'),
+        itemId,
+        auth: 'google-v1',
+        googleSubject: 'google-1',
+        email: 'member@example.com',
+      },
+      context: { res: { getHeader() {}, setHeader() {} } },
     })
     const context = {
-      req: { headers: { cookie: `keystonejs-session=${token}` } },
+      req: {
+        headers: {
+          host: 'cms.example.com',
+          cookie: `__Host-ly-budget-session=${token}`,
+        },
+      },
       sudo: () => ({
-        query: {
+        db: {
           User: {
             findOne: async ({ where }) => {
-              assert.equal(where.id, itemId)
-              return { id: '1', name: 'same-name', role: 'contributor' }
+              assert.equal(where.id, String(itemId))
+              return {
+                id: '1',
+                name: 'same-name',
+                role: 'contributor',
+                isActive: true,
+                googleSubject: 'google-1',
+                email: 'member@example.com',
+              }
             },
           },
         },
@@ -301,7 +413,17 @@ for (const itemId of [1, '1']) {
     assert.equal(await config.ui.isAccessAllowed({ session }), true)
     assert.equal(access.isAdmin({ session }), false)
     context.sudo = () => ({
-      query: { User: { findOne: async () => ({ id: '1', role: 'admin' }) } },
+      db: {
+        User: {
+          findOne: async () => ({
+            id: '1',
+            role: 'admin',
+            isActive: true,
+            googleSubject: 'google-1',
+            email: 'member@example.com',
+          }),
+        },
+      },
     })
     const adminSession = await config.session.get({ context })
     assert.equal(
@@ -313,7 +435,7 @@ for (const itemId of [1, '1']) {
       access.isAdmin({ session: { ...adminSession, itemId: 2 } }),
       false
     )
-    context.sudo = () => ({ query: { User: { findOne: async () => null } } })
+    context.sudo = () => ({ db: { User: { findOne: async () => null } } })
     assert.equal(await config.session.get({ context }), undefined)
   })
 }
